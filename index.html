@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        /* Enhanced mobile responsiveness */
+        @media (max-width: 640px) {
+            .main-container {
+                padding: 0.5rem !important;
+            }
+            
+            #report-output-container {
+                padding: 1rem !important;
+            }
+            
+            .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            table {
+                font-size: 0.875rem;
+            }
+            
+            .grid {
+                gap: 0.75rem !important;
+            }
+            
+            h1 {
+                font-size: 1.75rem !important;
+            }
+            
+            h2 {
+                font-size: 1.5rem !important;
+            }
+        }
+
+        /* Better table scrolling on mobile */
+        .overflow-x-auto {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        
+        /* Custom styles for printing */
+        @media print {
+            body {
+                font-family: Arial, sans-serif; /* Use print-safe fonts */
+            }
+            #controls, #print-report-button, #edit-report-button, #delete-report-button {
+                display: none !important;
+            }
+            #report-output-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .main-container {
+                display: block !important;
+                padding: 0 !important;
+            }
+            #report-header div {
+                background-color: #f9fafb !important; /* Ensure bg prints */
+                -webkit-print-color-adjust: exact; /* Chrome/Safari */
+                color-adjust: exact; /* Firefox */
+            }
+            #report-stats > div {
+                 background-color: #f9fafb !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            tr {
+                page-break-inside: avoid;
+            }
+            thead {
+                display: table-header-group; /* Ensure header repeats on new pages */
+            }
+            tbody {
+                display: table-row-group;
+            }
+            .bg-yellow-100 {
+                background-color: #fef9c3 !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            .bg-gray-200 {
+                background-color: #e5e7eb !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            .bg-orange-100 {
+                background-color: #ffedd5 !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+             .bg-gray-50 {
+                background-color: #f9fafb !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+             .bg-gray-100 {
+                background-color: #f3f4f6 !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+             .bg-white {
+                background-color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            /* Ensure sub-table details print correctly */
+            .detail-sub-table div {
+                background-color: #f9fafb !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            .detail-sub-table table {
+                page-break-inside: avoid;
+            }
+            .detail-sub-table tbody tr {
+                 background-color: #ffffff !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 sm:p-8 antialiased">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-center text-blue-800">Test Report Generator</h1>
+            <p class="text-center text-lg text-gray-600 mt-2">Manage students, create tests, and generate detailed reports.</p>
+        </header>
+
+        <!-- Message Bar -->
+        <div id="message-bar" class="hidden p-4 mb-4 rounded-md text-center transition-all duration-300">
+            <!-- Messages will be injected here -->
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-container grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column: Controls -->
+            <div id="controls" class="lg:col-span-1 space-y-8">
+                
+                <!-- Manage Students -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Manage Students</h2>
+                    <div class="space-y-4">
+                        <div class="flex space-x-2">
+                            <input type="text" id="student-name-input" placeholder="Enter new student name" class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button id="add-student-button" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">
+                                Add
+                            </button>
+                        </div>
+                        <div id="student-list-container" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                            <!-- Student list will be injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved Test Reports -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Saved Test Reports</h2>
+                    <div id="saved-reports-list" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        <!-- Saved reports list will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Generate Aggregate Reports -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Aggregate Reports</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="report-month" class="block text-sm font-medium text-gray-700 mb-1">Select Month (for Monthly Report)</label>
+                            <input type="month" id="report-month" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button id="generate-monthly-report" class="mt-3 w-full px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors">
+                                Generate Monthly Report
+                            </button>
+                        </div>
+                        <div class="border-t pt-4">
+                            <label for="report-year" class="block text-sm font-medium text-gray-700 mb-1">Select Year (for Yearly Report)</label>
+                            <input type="number" id="report-year" placeholder="e.g., 2024" min="2000" max="2100" class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button id="generate-yearly-report" class="mt-3 w-full px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors">
+                                Generate Yearly Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add New Test Report -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+                    <h2 id="form-title" class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Add New Test Report</h2>
+                    <form id="test-report-form" class="space-y-4">
+                        <!-- Hidden input to store editing test ID -->
+                        <input type="hidden" id="editing-test-id" value="">
+
+                        <!-- Form Header -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="institute-name" class="block text-sm font-medium text-gray-700">Institute Name</label>
+                                <input type="text" id="institute-name" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="subject-name" class="block text-sm font-medium text-gray-700">Subject Name</label>
+                                <input type="text" id="subject-name" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="teacher-name" class="block text-sm font-medium text-gray-700">Teacher Name</label>
+                                <input type="text" id="teacher-name" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="test-date" class="block text-sm font-medium text-gray-700">Test Date</label>
+                                <input type="date" id="test-date" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="test-title" class="block text-sm font-medium text-gray-700">Test Title</label>
+                                <input type="text" id="test-title" placeholder="e.g., Mid-Term Exam, Chapter 5 Quiz" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="total-marks" class="block text-sm font-medium text-gray-700">Total Marks</label>
+                                <input type="number" id="total-marks" min="1" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <!-- Student Scores Section -->
+                        <div class="pt-4 border-t">
+                            <h3 class="text-lg font-semibold text-gray-700 mb-3">Student Scores</h3>
+                            <div id="student-scores-container" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                                <!-- Student score inputs will be injected here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Form Buttons -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-5 border-t">
+                            <button type="submit" id="save-report-button" class="w-full sm:w-auto flex-grow px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">
+                                Save Test Report
+                            </button>
+                            <button type="button" id="cancel-edit-button" class="w-full sm:w-auto px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition-colors hidden">
+                                Cancel Edit
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Report Output -->
+            <div id="report-output-container" class="lg:col-span-2 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Generated Report</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="edit-report-button" class="px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-opacity-50 transition-colors hidden">
+                            <span class="hidden sm:inline">Edit</span>
+                            <span class="sm:hidden">✏️</span>
+                        </button>
+                        <button id="delete-report-button" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors hidden">
+                            <span class="hidden sm:inline">Delete</span>
+                            <span class="sm:hidden">🗑️</span>
+                        </button>
+                        <button id="download-pdf-button" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors">
+                            <span class="hidden sm:inline">Download PDF</span>
+                            <span class="sm:hidden">📄</span>
+                        </button>
+                        <button id="download-image-button" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition-colors">
+                            <span class="hidden sm:inline">Download Image</span>
+                            <span class="sm:hidden">🖼️</span>
+                        </button>
+                        <button id="print-report-button" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">
+                            <span class="hidden sm:inline">Print Report</span>
+                            <span class="sm:hidden">🖨️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Header -->
+                <div id="report-header" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                    <!-- Header data will be injected here -->
+                </div>
+
+                <!-- Report Statistics -->
+                <div id="report-stats" class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                    <!-- Stats will be injected here (will be split into two columns) -->
+                </div>
+
+                <!-- Report Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-300 border border-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th id="rank-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Rank</th>
+                                <th id="name-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student Name</th>
+                                <th id="obtained-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Obt. Marks</th>
+                                <th id="total-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Marks</th>
+                                <th id="percentage-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Percentage %</th>
+                                <th id="remarks-header" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body-present" class="bg-white divide-y divide-gray-200">
+                            <!-- Present student rows will be injected here -->
+                        </tbody>
+                        <tbody id="report-table-body-openbook" class="bg-white divide-y divide-gray-200">
+                            <!-- Open Book student rows will be injected here -->
+                        </tbody>
+                        <tbody id="report-table-body-other" class="bg-white divide-y divide-gray-200">
+                            <!-- Absent/Exempt student rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Logic -->
+    <script type(="module")>
+        // --- Global State ---
+        let localStudentList = []; // Local cache of students
+        let localTestReports = []; // Local cache of test reports
+        
+        // --- UI Elements ---
+        // Message Bar
+        const messageBar = document.getElementById('message-bar');
+
+        // Student Roster
+        const studentNameInput = document.getElementById('student-name-input');
+        const addStudentButton = document.getElementById('add-student-button');
+        const studentListContainer = document.getElementById('student-list-container');
+
+        // Saved Reports
+        const savedReportsList = document.getElementById('saved-reports-list');
+
+        // Test Report Form
+        const testReportForm = document.getElementById('test-report-form');
+        const formTitle = document.getElementById('form-title');
+        const studentScoresContainer = document.getElementById('student-scores-container');
+        const instituteNameInput = document.getElementById('institute-name');
+        const subjectNameInput = document.getElementById('subject-name');
+        const teacherNameInput = document.getElementById('teacher-name');
+        const testDateInput = document.getElementById('test-date');
+        const testTitleInput = document.getElementById('test-title');
+        const totalMarksInput = document.getElementById('total-marks');
+        const saveReportButton = document.getElementById('save-report-button');
+        const cancelEditButton = document.getElementById('cancel-edit-button');
+        const editingTestIdInput = document.getElementById('editing-test-id');
+
+        // Aggregate Reports
+        const reportMonthInput = document.getElementById('report-month');
+        const reportYearInput = document.getElementById('report-year');
+        const generateMonthlyReportButton = document.getElementById('generate-monthly-report');
+        const generateYearlyReportButton = document.getElementById('generate-yearly-report');
+
+        // Report Output
+        const reportOutputContainer = document.getElementById('report-output-container');
+        const reportHeader = document.getElementById('report-header');
+        const reportStats = document.getElementById('report-stats');
+        const reportTableBodyPresent = document.getElementById('report-table-body-present');
+        const reportTableBodyOpenBook = document.getElementById('report-table-body-openbook');
+        const reportTableBodyOther = document.getElementById('report-table-body-other');
+        const printReportButton = document.getElementById('print-report-button');
+        const editReportButton = document.getElementById('edit-report-button');
+        const deleteReportButton = document.getElementById('delete-report-button');
+
+        // --- Local Storage Utilities ---
+        const StorageKeys = {
+            Students: 'testReportApp_Students',
+            Reports: 'testReportApp_Reports'
+        };
+
+        // --- Default Data ---
+        const defaultStudents = [
+            "Syed Hassan", "Ahmed Raza", "Makki Raza", "Mushtaq tufail", "Hasan Raza", 
+            "Bilal Raza", "Muhammad MuSHtaq Madni", "Muhammad Yousuf", "Gulam Mustafa", 
+            "Muhammad Uzair", "Muhammad Safwan", "Wasifraza", "Farooq", "Areeb Hashim", 
+            "Bilal Shakeel", "Junaid Akhtar", "Muhammad wajahat", "Zohib", "Ahmed Raza Junaid", 
+            "AreebAhmed", "Salman", "Hafiz Ibrahim", "Abdul Hafeez", "Saad", "Alyan", 
+            "Usman", "Mubeen", "Shayan", "Ahmed raza shafat", "Usaid Raza Shafat"
+        ];
+        
+        const defaultFormValues = {
+            institute: "Jamia-tul-Madina",
+            subject: "Taiseer Mustaleh-ul-Hadis",
+            teacher: "Ustad Junaid Shiekh Sahab"
+        };
+
+        // Load data from localStorage
+        function loadDataFromStorage() {
+            // Load Students
+            const savedStudents = localStorage.getItem(StorageKeys.Students);
+            if (savedStudents) {
+                localStudentList = JSON.parse(savedStudents);
+            } else {
+                // First time load: populate with defaults
+                localStudentList = defaultStudents.sort().map((name, index) => ({
+                    id: `student_${new Date().getTime() + index}`,
+                    name: name
+                }));
+                saveStudentsToStorage();
+            }
+
+            // Load Reports
+            localTestReports = JSON.parse(localStorage.getItem(StorageKeys.Reports)) || [];
+            localTestReports.sort((a, b) => b.testDate.localeCompare(a.testDate)); // Sort newest first
+        }
+
+        // Save students to localStorage
+        function saveStudentsToStorage() {
+            localStorage.setItem(StorageKeys.Students, JSON.stringify(localStudentList));
+        }
+
+        // Save reports to localStorage
+        function saveReportsToStorage() {
+            localTestReports.sort((a, b) => b.testDate.localeCompare(a.testDate)); // Sort newest first
+            localStorage.setItem(StorageKeys.Reports, JSON.stringify(localTestReports));
+        }
+
+        // --- Student List Functions ---
+
+        // Render the student list
+        function renderStudentList() {
+            studentListContainer.innerHTML = ''; // Clear existing list
+            if (localStudentList.length === 0) {
+                studentListContainer.innerHTML = '<p class="text-gray-500 text-sm">No students added yet.</p>';
+                return;
+            }
+            localStudentList.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-200';
+                studentDiv.innerHTML = `
+                    <span class="text-gray-800">${student.name}</span>
+                    <button data-id="${student.id}" class="remove-student-button text-red-500 hover:text-red-700 font-semibold text-sm">Remove</button>
+                `;
+                studentListContainer.appendChild(studentDiv);
+            });
+            // Add event listeners to new remove buttons
+            document.querySelectorAll('.remove-student-button').forEach(button => {
+                button.addEventListener('click', handleRemoveStudent);
+            });
+        }
+
+        // Add a new student
+        function handleAddStudent() {
+            const name = studentNameInput.value.trim();
+            if (name) {
+                const newStudent = {
+                    id: `student_${new Date().getTime()}`,
+                    name: name
+                };
+                localStudentList.push(newStudent);
+                localStudentList.sort((a, b) => a.name.localeCompare(b.name)); // Keep sorted
+                saveStudentsToStorage();
+                renderStudentList();
+                renderStudentScoresForm(); // Re-render the form
+                studentNameInput.value = '';
+                showMessage("Student added successfully.", "success");
+            } else {
+                showMessage("Please enter a student name.", "error");
+            }
+        }
+
+        // Remove a student
+        function handleRemoveStudent(event) {
+            const studentId = event.target.dataset.id;
+            localStudentList = localStudentList.filter(student => student.id !== studentId);
+            saveStudentsToStorage();
+            renderStudentList();
+            renderStudentScoresForm(); // Re-render the form
+            showMessage("Student removed.", "success");
+        }
+        
+        // --- Saved Reports List Functions ---
+        
+        function renderSavedReportsList() {
+            savedReportsList.innerHTML = '';
+            if (localTestReports.length === 0) {
+                savedReportsList.innerHTML = '<p class="text-gray-500 text-sm">No test reports saved yet.</p>';
+                return;
+            }
+            
+            localTestReports.forEach(report => {
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-200';
+                reportDiv.innerHTML = `
+                    <div class="flex-grow">
+                        <span class="block font-medium text-gray-800">${report.testTitle}</span>
+                        <span class="block text-sm text-gray-500">${report.testDate}</span>
+                    </div>
+                    <div class="flex-shrink-0 space-x-1">
+                        <button data-id="${report.id}" class="view-report-button text-blue-600 hover:text-blue-800 font-semibold text-sm">View</button>
+                        <button data-id="${report.id}" class="edit-report-button text-yellow-600 hover:text-yellow-800 font-semibold text-sm">Edit</button>
+                        <button data-id="${report.id}" class="delete-report-button text-red-500 hover:text-red-700 font-semibold text-sm">Del</button>
+                    </div>
+                `;
+                savedReportsList.appendChild(reportDiv);
+            });
+            
+            // Add event listeners
+            document.querySelectorAll('.view-report-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const test = localTestReports.find(r => r.id === e.target.dataset.id);
+                    if (test) generateSingleTestReport(test);
+                });
+            });
+            document.querySelectorAll('.edit-report-button').forEach(button => {
+                button.addEventListener('click', (e) => handleEditReport(e.target.dataset.id));
+            });
+            document.querySelectorAll('.delete-report-button').forEach(button => {
+                button.addEventListener('click', (e) => handleDeleteReport(e.target.dataset.id));
+            });
+        }
+        
+        function handleDeleteReport(testId) {
+            localTestReports = localTestReports.filter(report => report.id !== testId);
+            saveReportsToStorage();
+            renderSavedReportsList();
+            
+            // If the deleted report was the one being viewed, clear the view
+            if (reportOutputContainer.dataset.currentTestId === testId) {
+                reportOutputContainer.classList.add('hidden');
+                reportOutputContainer.dataset.currentTestId = '';
+            }
+            showMessage("Report deleted successfully.", "success");
+        }
+
+        // --- Test Report Form Functions ---
+
+        // Render the student scores inputs in the form
+        function renderStudentScoresForm(scores = []) {
+            studentScoresContainer.innerHTML = '';
+            if (localStudentList.length === 0) {
+                studentScoresContainer.innerHTML = '<p class="text-gray-500 text-sm">Add students to the list to enter marks.</p>';
+                return;
+            }
+
+            const totalMarks = parseInt(totalMarksInput.value, 10) || 0;
+
+            localStudentList.forEach(student => {
+                const scoreData = scores.find(s => s.studentId === student.id);
+                
+                const status = scoreData?.status || 'present';
+                const obtainedMarks = scoreData?.obtainedMarks || '';
+                const openBook = scoreData?.openBook || false;
+                const isPresent = status === 'present';
+
+                const studentInputDiv = document.createElement('div');
+                studentInputDiv.className = 'p-3 bg-gray-50 rounded-lg border border-gray-200';
+                studentInputDiv.innerHTML = `
+                    <label class="block text-md font-semibold text-gray-800 mb-2">${student.name}</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <!-- Status Dropdown -->
+                        <div>
+                            <label for="status-${student.id}" class="block text-xs font-medium text-gray-500">Status</label>
+                            <select id="status-${student.id}" data-id="${student.id}" class="student-status-select mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="present" ${status === 'present' ? 'selected' : ''}>Present</option>
+                                <option value="absent" ${status === 'absent' ? 'selected' : ''}>Absent</option>
+                                <option value="no_test" ${status === 'no_test' ? 'selected' : ''}>Present (No Test)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Obtained Marks -->
+                        <div>
+                            <label for="marks-${student.id}" class="block text-xs font-medium text-gray-500">Obtained Marks</label>
+                            <input 
+                                type="number" 
+                                id="marks-${student.id}" 
+                                data-id="${student.id}" 
+                                placeholder="Marks" 
+                                min="0"
+                                ${totalMarks > 0 ? `max="${totalMarks}"` : ''}
+                                value="${obtainedMarks}"
+                                ${!isPresent ? 'disabled' : ''}
+                                class="student-marks-input mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isPresent ? 'bg-gray-200' : ''}"
+                            >
+                        </div>
+
+                        <!-- Open Book Checkbox -->
+                        <div class="flex items-end pb-1">
+                            <div class="flex items-center">
+                                <input 
+                                    type="checkbox" 
+                                    id="openbook-${student.id}" 
+                                    data-id="${student.id}" 
+                                    ${openBook ? 'checked' : ''}
+                                    ${!isPresent ? 'disabled' : ''}
+                                    class="student-openbook-check h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 ${!isPresent ? 'bg-gray-200' : ''}"
+                                >
+                                <label for="openbook-${student.id}" class="ml-2 block text-sm text-gray-700">Open Book</label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                studentScoresContainer.appendChild(studentInputDiv);
+            });
+
+            // Add event listeners for status changes
+            document.querySelectorAll('.student-status-select').forEach(select => {
+                select.addEventListener('change', handleStatusChange);
+            });
+            // Add event listeners for marks validation
+            document.querySelectorAll('.student-marks-input').forEach(input => {
+                input.addEventListener('input', validateMarksInput);
+            });
+        }
+        
+        // Handle student status change
+        function handleStatusChange(event) {
+            const studentId = event.target.dataset.id;
+            const isPresent = event.target.value === 'present';
+            
+            const marksInput = document.getElementById(`marks-${studentId}`);
+            const openBookCheck = document.getElementById(`openbook-${studentId}`);
+
+            marksInput.disabled = !isPresent;
+            openBookCheck.disabled = !isPresent;
+
+            if (!isPresent) {
+                marksInput.value = '';
+                openBookCheck.checked = false;
+                marksInput.classList.add('bg-gray-200');
+                openBookCheck.classList.add('bg-gray-200');
+            } else {
+                marksInput.classList.remove('bg-gray-200');
+                openBookCheck.classList.remove('bg-gray-200');
+            }
+        }
+        
+        // Validate marks input against total marks
+        function validateMarksInput(event) {
+            const input = event.target;
+            const totalMarks = parseInt(totalMarksInput.value, 10);
+            let obtainedMarks = parseInt(input.value, 10);
+            
+            if (isNaN(obtainedMarks)) {
+                return; // Allow empty input
+            }
+            
+            if (!isNaN(totalMarks) && totalMarks > 0) {
+                 if (obtainedMarks > totalMarks) {
+                    input.value = totalMarks; // Cap at total marks
+                    showMessage(`Marks cannot exceed total marks (${totalMarks}).`, "error");
+                }
+            }
+            if (obtainedMarks < 0) {
+                input.value = 0; // Floor at 0
+            }
+        }
+        
+        // Update max attribute on marks inputs when total marks changes
+        totalMarksInput.addEventListener('change', () => {
+             const totalMarks = parseInt(totalMarksInput.value, 10);
+             if (!isNaN(totalMarks) && totalMarks > 0) {
+                document.querySelectorAll('.student-marks-input').forEach(input => {
+                    input.setAttribute('max', totalMarks);
+                    // Re-validate existing values
+                     let obtainedMarks = parseInt(input.value, 10);
+                     if (!isNaN(obtainedMarks) && obtainedMarks > totalMarks) {
+                         input.value = totalMarks;
+                     }
+                });
+             }
+        });
+
+        // Handle saving or updating a test report
+        function handleSaveReport(event) {
+            event.preventDefault();
+
+            const totalMarks = parseInt(totalMarksInput.value, 10);
+            if (isNaN(totalMarks) || totalMarks <= 0) {
+                showMessage("Please enter a valid Total Marks value.", "error");
+                totalMarksInput.focus();
+                return;
+            }
+            
+            // Collect scores
+            const studentScores = [];
+            let hasInvalidMarks = false;
+            localStudentList.forEach(student => {
+                const studentId = student.id;
+                const status = document.getElementById(`status-${studentId}`).value;
+                const marksInput = document.getElementById(`marks-${studentId}`);
+                const openBook = document.getElementById(`openbook-${studentId}`).checked;
+                
+                let obtainedMarks = parseInt(marksInput.value, 10);
+
+                if (status === 'present') {
+                    if (isNaN(obtainedMarks) || obtainedMarks < 0) {
+                        showMessage(`Please enter valid marks for ${student.name}.`, "error");
+                        marksInput.focus();
+                        hasInvalidMarks = true;
+                        return;
+                    }
+                    if (obtainedMarks > totalMarks) {
+                         showMessage(`Marks for ${student.name} cannot exceed total marks.`, "error");
+                         marksInput.focus();
+                         hasInvalidMarks = true;
+                         return;
+                    }
+                }
+
+                studentScores.push({
+                    studentId: studentId,
+                    studentName: student.name, // Store name for convenience
+                    status: status,
+                    obtainedMarks: (status === 'present') ? obtainedMarks : 0,
+                    openBook: (status === 'present') ? openBook : false
+                });
+            });
+
+            if (hasInvalidMarks) return;
+
+            const testReport = {
+                id: editingTestIdInput.value || `test_${new Date().getTime()}`,
+                institute: instituteNameInput.value,
+                subject: subjectNameInput.value,
+                teacher: teacherNameInput.value,
+                testDate: testDateInput.value,
+                testTitle: testTitleInput.value,
+                totalMarks: totalMarks,
+                scores: studentScores
+            };
+
+            const editingId = editingTestIdInput.value;
+            if (editingId) {
+                // Update existing report
+                const index = localTestReports.findIndex(report => report.id === editingId);
+                if (index !== -1) {
+                    localTestReports[index] = testReport;
+                    showMessage("Report updated successfully.", "success");
+                }
+            } else {
+                // Add new report
+                localTestReports.push(testReport);
+                showMessage("Report saved successfully.", "success");
+            }
+            
+            saveReportsToStorage();
+            renderSavedReportsList(); // Update the saved list
+            generateSingleTestReport(testReport); // Display the new/updated report
+            resetForm();
+        }
+        
+        // Reset the form to its initial state
+        function resetForm() {
+            testReportForm.reset();
+            editingTestIdInput.value = '';
+            formTitle.innerText = "Add New Test Report";
+            saveReportButton.innerText = "Save Test Report";
+            saveReportButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600', 'focus:ring-yellow-500');
+            saveReportButton.classList.add('bg-blue-600', 'hover:bg-blue-700', 'focus:ring-blue-500');
+            cancelEditButton.classList.add('hidden');
+            
+            // Set defaults
+            instituteNameInput.value = defaultFormValues.institute;
+            subjectNameInput.value = defaultFormValues.subject;
+            teacherNameInput.value = defaultFormValues.teacher;
+            testDateInput.value = new Date().toISOString().split('T')[0];
+
+            renderStudentScoresForm(); // Render blank scores
+        }
+        
+        // Handle "Edit Report" button click
+        function handleEditReport(testId) {
+            const test = localTestReports.find(r => r.id === testId);
+            
+            if (test) {
+                // 1. Populate Header
+                instituteNameInput.value = test.institute;
+                subjectNameInput.value = test.subject;
+                teacherNameInput.value = test.teacher;
+                testDateInput.value = test.testDate;
+                testTitleInput.value = test.testTitle;
+                totalMarksInput.value = test.totalMarks;
+                
+                // 2. Set editing mode
+                editingTestIdInput.value = test.id;
+                formTitle.innerText = "Edit Test Report";
+                saveReportButton.innerText = "Update Report";
+                saveReportButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600', 'focus:ring-yellow-500');
+                saveReportButton.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'focus:ring-blue-500');
+                cancelEditButton.classList.remove('hidden');
+                
+                // 3. Populate Student Scores
+                renderStudentScoresForm(test.scores);
+                
+                // 4. Scroll to form
+                testReportForm.scrollIntoView({ behavior: 'smooth' });
+                showMessage("Editing report. Make your changes and click 'Update'.", "info");
+            }
+        }
+
+        // --- Report Generation Functions ---
+
+        // Generic function to render the report UI
+        function renderReportUI(headerData, statsData, renderTableCallback, isSingleTestReport = false, testId = null) {
+            // 1. Render Header
+            reportHeader.innerHTML = '';
+            for (const [key, value] of Object.entries(headerData)) {
+                reportHeader.innerHTML += `
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <span class="block text-xs font-semibold text-gray-500 uppercase">${key}</span>
+                        <span class="block text-lg font-medium text-gray-800">${value}</span>
+                    </div>
+                `;
+            }
+
+            // 2. Render Stats
+            reportStats.innerHTML = '';
+            if (statsData.standard || statsData.openBook) {
+                // Split view for single test
+                if (statsData.standard) {
+                    reportStats.innerHTML += createStatsBlock('Standard Test', statsData.standard);
+                }
+                if (statsData.openBook) {
+                    reportStats.innerHTML += createStatsBlock('Open Book Test', statsData.openBook);
+                }
+            } else {
+                // Single view for aggregate
+                reportStats.innerHTML = createStatsBlock('Aggregate Statistics', statsData);
+            }
+
+
+            // 3. Render Table (using the callback)
+            reportTableBodyPresent.innerHTML = '';
+            reportTableBodyOpenBook.innerHTML = '';
+            reportTableBodyOther.innerHTML = '';
+            renderTableCallback();
+            
+            // 4. Show/Hide Edit/Delete buttons
+            if (isSingleTestReport && testId) {
+                reportOutputContainer.dataset.currentTestId = testId;
+                editReportButton.dataset.testId = testId;
+                deleteReportButton.dataset.testId = testId;
+                editReportButton.classList.remove('hidden');
+                deleteReportButton.classList.remove('hidden');
+                
+                // Add listeners to main report buttons
+                editReportButton.onclick = () => handleEditReport(testId);
+                deleteReportButton.onclick = () => handleDeleteReport(testId);
+
+            } else {
+                reportOutputContainer.dataset.currentTestId = '';
+                editReportButton.classList.add('hidden');
+                deleteReportButton.classList.add('hidden');
+            }
+
+            // Finally, show the report
+            reportOutputContainer.classList.remove('hidden');
+            reportOutputContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Utility: Create stats block HTML
+        function createStatsBlock(title, stats) {
+            let html = `<div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 class="text-lg font-semibold text-center text-blue-800 mb-3">${title}</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">`;
+            
+            const statOrder = ["Class Average", "Highest Score", "Lowest Score", "Students Tested", "Absent", "Present (No Test)"];
+            
+            for (const key of statOrder) {
+                if (stats[key] !== undefined) {
+                    html += `
+                        <div class_="${key.length > 15 ? 'col-span-1' : ''}">
+                            <span class="block text-xs font-semibold text-gray-500 uppercase">${key}</span>
+                            <span class="block text-2xl font-bold text-blue-700">${stats[key]}</span>
+                        </div>`;
+                }
+            }
+            
+            html += `</div></div>`;
+            return html;
+        }
+
+        // Get remark based on rank and percentage
+        function getRemark(rank, percentage) {
+            if (percentage >= 95) return "Outstanding";
+            if (percentage >= 90) return "Excellent";
+            if (percentage >= 80) return "Very Good";
+            if (percentage >= 70) return "Good";
+            if (percentage >= 60) return "Satisfactory";
+            if (percentage >= 50) return "Pass";
+            if (percentage < 50) return "Needs Improvement";
+            return "Needs Attention";
+        }
+
+        // Function: Generates a Single Test Report
+        function generateSingleTestReport(test) {
+            const reportHeaderData = {
+                Institute: test.institute,
+                Subject: test.subject,
+                Teacher: test.teacher,
+                "Test Date": test.testDate,
+                "Test Title": test.testTitle,
+                "Total Marks": test.totalMarks
+            };
+
+            // Separate students
+            const presentStudents = test.scores
+                .filter(s => s.status === 'present')
+                .map(s => ({
+                    ...s,
+                    totalMarks: test.totalMarks // Add total marks for sorting/percentage
+                }));
+            
+            const otherStudents = test.scores
+                .filter(s => s.status !== 'present')
+                .sort((a, b) => a.studentName.localeCompare(b.studentName)); // Sort others alphabetically
+                    
+            // Split present students into Standard and Open Book
+            const standardTestStudents = presentStudents
+                .filter(s => !s.openBook)
+                .sort((a, b) => b.obtainedMarks - a.obtainedMarks || a.studentName.localeCompare(b.studentName));
+                
+            const openBookStudents = presentStudents
+                .filter(s => s.openBook)
+                .sort((a, b) => b.obtainedMarks - a.obtainedMarks || a.studentName.localeCompare(b.studentName));
+
+
+            // Calculate Statistics
+            const absentCount = otherStudents.filter(s => s.status === 'absent').length;
+            const noTestCount = otherStudents.filter(s => s.status === 'no_test').length;
+
+            const calculateGroupStats = (group) => {
+                if (group.length === 0) return {
+                    "Class Average": "N/A", "Highest Score": "N/A", "Lowest Score": "N/A", "Students Tested": 0
+                };
+                const percentages = group.map(s => (s.obtainedMarks / s.totalMarks) * 100);
+                const averagePercentage = percentages.reduce((acc, p) => acc + p, 0) / percentages.length;
+                const highPercentage = Math.max(...percentages);
+                const lowPercentage = Math.min(...percentages);
+                return {
+                    "Class Average": `${averagePercentage.toFixed(1)}%`,
+                    "Highest Score": `${highPercentage.toFixed(1)}%`,
+                    "Lowest Score": `${lowPercentage.toFixed(1)}%`,
+                    "Students Tested": group.length
+                };
+            };
+            
+            const standardStats = calculateGroupStats(standardTestStudents);
+            const openBookStats = calculateGroupStats(openBookStudents);
+
+            const statsData = {
+                standard: {
+                    ...standardStats,
+                    "Absent": absentCount,
+                    "Present (No Test)": noTestCount
+                },
+                openBook: openBookStats
+            };
+            
+            if (openBookStudents.length === 0) {
+                delete statsData.openBook;
+            }
+
+            // Render Report
+            renderReportUI(reportHeaderData, statsData, () => {
+                // Set column headers for single test report
+                document.getElementById('rank-header').innerText = "Rank";
+                document.getElementById('name-header').innerText = "Student Name";
+                document.getElementById('obtained-header').innerText = "Obt. Marks";
+                document.getElementById('total-header').innerText = "Total Marks";
+                document.getElementById('percentage-header').innerText = "Percentage %";
+                const remarksHeader = document.getElementById('remarks-header');
+                remarksHeader.classList.remove('hidden');
+                remarksHeader.style.display = '';
+                remarksHeader.innerText = "Remarks";
+
+                if (presentStudents.length === 0 && otherStudents.length === 0) {
+                     reportTableBodyPresent.innerHTML = '<tr><td colspan="6" class="text-center p-4">No student data to display.</td></tr>';
+                     return;
+                }
+                
+                const renderGroupToTable = (group, tableBody, title) => {
+                    if (group.length === 0) return;
+                    
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="p-2 bg-gray-200 text-center font-semibold text-gray-700">
+                                ${title}
+                            </td>
+                        </tr>`;
+                    
+                    group.forEach((item, index) => {
+                        const rank = index + 1;
+                        const percentage = item.totalMarks > 0 ? (item.obtainedMarks / item.totalMarks) * 100 : 0;
+                        const remark = getRemark(rank, percentage);
+
+                        let rankClass = '';
+                        if (rank === 1) rankClass = 'bg-yellow-100 font-bold';
+                        else if (rank === 2) rankClass = 'bg-gray-200 font-semibold';
+                        else if (rank === 3) rankClass = 'bg-orange-100 font-medium';
+                        else if (index % 2 !== 0) rankClass = 'bg-gray-50'; // For alternating rows
+                        
+                        const tr = document.createElement('tr');
+                        tr.className = rankClass;
+                        
+                        tr.innerHTML = `
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">${rank}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                ${item.studentName}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.obtainedMarks}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.totalMarks}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold ${percentage >= 80 ? 'text-green-600' : percentage < 50 ? 'text-red-600' : 'text-gray-800'}">
+                                ${percentage.toFixed(1)}%
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${remark}</td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                };
+
+                // 1. Render Standard Test Students
+                renderGroupToTable(standardTestStudents, reportTableBodyPresent, 'Present Students (Standard Test)');
+                
+                // 2. Render Open Book Students
+                renderGroupToTable(openBookStudents, reportTableBodyOpenBook, 'Present Students (Open Book Test)');
+
+                // 3. Render Other Students (in a separate body)
+                if (otherStudents.length > 0) {
+                    reportTableBodyOther.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="p-2 bg-gray-200 text-center font-semibold text-gray-700">
+                                Absent / Present (No Test) Students
+                            </td>
+                        </tr>
+                    `;
+                    otherStudents.forEach(item => {
+                        const statusText = item.status === 'absent' ? 'Absent' : 'Present (No Test)';
+                        const statusClass = item.status === 'absent' ? 'text-red-600' : 'text-blue-600';
+                        
+                        const tr = document.createElement('tr');
+                        tr.className = 'bg-gray-100'; // Different background for non-tested
+                        tr.innerHTML = `
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-400">-</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${item.studentName}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold ${statusClass}">
+                                ${statusText}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-400">-</td>
+                        `;
+                        reportTableBodyOther.appendChild(tr);
+                    });
+                }
+            }, true, test.id); // <-- Pass true for isSingleTestReport and the test ID
+        }
+
+        // Function: Generates an Aggregate (Monthly/Yearly) Report
+        function generateAggregateReport(periodType) {
+            let testsToAggregate = [];
+            let periodName = "";
+            let reportTitle = "";
+
+            if (periodType === 'monthly') {
+                const month = reportMonthInput.value; // YYYY-MM
+                if (!month) {
+                    showMessage("Please select a month.", "error");
+                    return;
+                }
+                const [year, m] = month.split('-');
+                testsToAggregate = localTestReports.filter(test => test.testDate.startsWith(month));
+                periodName = new Date(year, m - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                reportTitle = "Monthly Report";
+            } else if (periodType === 'yearly') {
+                const year = reportYearInput.value;
+                if (!year) {
+                    showMessage("Please enter a year.", "error");
+                    return;
+                }
+                testsToAggregate = localTestReports.filter(test => test.testDate.startsWith(year));
+                periodName = year;
+                reportTitle = "Yearly Report";
+            }
+
+            if (testsToAggregate.length === 0) {
+                showMessage(`No tests found for ${periodName}.`, "info");
+                return;
+            }
+
+            // Aggregate Data
+            const studentData = {};
+            testsToAggregate.forEach(test => {
+                test.scores.forEach(score => {
+                    if (!localStudentList.find(s => s.id === score.studentId)) return;
+                    
+                    if (!studentData[score.studentId]) {
+                        studentData[score.studentId] = {
+                            studentName: score.studentName,
+                            totalObtained: 0,
+                            totalMarks: 0,
+                            tests: []
+                        };
+                    }
+                    
+                    if (score.status === 'present') {
+                        studentData[score.studentId].totalObtained += score.obtainedMarks;
+                        studentData[score.studentId].totalMarks += test.totalMarks;
+                        studentData[score.studentId].tests.push({
+                            testId: test.id,
+                            testTitle: test.testTitle,
+                            testDate: test.testDate,
+                            obtainedMarks: score.obtainedMarks,
+                            totalMarks: test.totalMarks
+                        });
+                    }
+                });
+            });
+
+            const reportData = Object.values(studentData)
+                .filter(s => s.totalMarks > 0)
+                .sort((a, b) => {
+                    const percA = (a.totalObtained / a.totalMarks) * 100;
+                    const percB = (b.totalObtained / b.totalMarks) * 100;
+                    return percB - percA || a.studentName.localeCompare(b.studentName);
+                });
+
+            // Calculate Overall Statistics
+            const allPercentages = reportData.map(s => (s.totalObtained / s.totalMarks) * 100);
+            const averagePercentage = allPercentages.length > 0 ? (allPercentages.reduce((acc, p) => acc + p, 0) / allPercentages.length) : 0;
+            const highPercentage = allPercentages.length > 0 ? Math.max(...allPercentages) : 0;
+            const lowPercentage = allPercentages.length > 0 ? Math.min(...allPercentages) : 0;
+            
+            const statsData = {
+                "Class Average": `${averagePercentage.toFixed(1)}%`,
+                "Highest Score": `${highPercentage.toFixed(1)}%`,
+                "Lowest Score": `${lowPercentage.toFixed(1)}%`,
+                "Students Tested": reportData.length,
+                "Total Tests": testsToAggregate.length
+            };
+
+            const reportHeaderData = {
+                Report: reportTitle,
+                Period: periodName,
+                Institute: instituteNameInput.value || "N/A",
+                Subject: subjectNameInput.value || "N/A"
+            };
+            
+            // Render Report
+            renderReportUI(reportHeaderData, statsData, () => {
+                // Set column headers for aggregate report
+                document.getElementById('rank-header').innerText = "Rank";
+                document.getElementById('name-header').innerText = "Student Name";
+                document.getElementById('obtained-header').innerText = "Total Obtained";
+                document.getElementById('total-header').innerText = "Total Marks";
+                document.getElementById('percentage-header').innerText = "Overall %";
+                const remarksHeader = document.getElementById('remarks-header');
+                remarksHeader.classList.add('hidden');
+                remarksHeader.style.display = 'none';
+
+                reportTableBodyPresent.innerHTML = '';
+                reportTableBodyOpenBook.innerHTML = '';
+                reportTableBodyOther.innerHTML = '';
+
+                if (reportData.length === 0) {
+                     reportTableBodyPresent.innerHTML = '<tr><td colspan="5" class="text-center p-4">No test data found for this period.</td></tr>';
+                     return;
+                }
+                
+                reportData.forEach((item, index) => {
+                    const rank = index + 1;
+                    const percentage = item.totalMarks > 0 ? (item.totalObtained / item.totalMarks) * 100 : 0;
+
+                    let rankClass = '';
+                    if (rank === 1) rankClass = 'bg-yellow-100 font-bold';
+                    else if (rank === 2) rankClass = 'bg-gray-200 font-semibold';
+                    else if (rank === 3) rankClass = 'bg-orange-100 font-medium';
+                    else if (index % 2 !== 0) rankClass = 'bg-gray-50';
+                    else rankClass = 'bg-white';
+
+                    // 1. Main Summary Row
+                    const trSummary = document.createElement('tr');
+                    trSummary.className = `${rankClass} border-b border-gray-300`; 
+                    
+                    trSummary.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">${rank}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">${item.studentName}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.totalObtained}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.totalMarks}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold ${percentage >= 80 ? 'text-green-600' : percentage < 50 ? 'text-red-600' : 'text-gray-800'}">
+                            ${percentage.toFixed(1)}%
+                        </td>
+                    `;
+                    reportTableBodyPresent.appendChild(trSummary);
+
+                    // 2. Detailed Test-by-Test Row
+                    if (item.tests && item.tests.length > 0) {
+                        const trDetails = document.createElement('tr');
+                        const detailBgClass = rankClass === 'bg-white' ? 'bg-white' : (rankClass.includes('bg-gray-50') ? 'bg-gray-50' : rankClass.replace('-100', '-50').replace('-200', '-100'));
+                        trDetails.className = `${detailBgClass} border-b-2 border-gray-400 detail-sub-table`;
+
+                        let detailTableHTML = `
+                            <div class="p-3" style="background-color: ${
+                                detailBgClass === 'bg-white' ? '#fdfdfd' : (detailBgClass.includes('bg-gray-50') ? '#f9fafb' : (detailBgClass.includes('bg-yellow-50') ? '#fefce8' : (detailBgClass.includes('bg-gray-100') ? '#f3f4f6' : '#fff7ed')))
+                            };">
+                                <h4 class="text-xs font-semibold text-gray-600 uppercase mb-2 ml-2">Test Details:</h4>
+                                <table class="min-w-full">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Title</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+                        `;
+
+                        item.tests.forEach(test => {
+                            detailTableHTML += `
+                                <tr class="bg-white">
+                                    <td classRoute="px-3 py-2 whitespace-nowrap text-sm text-gray-800">${test.testTitle}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${test.testDate}</td>
+                                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-800 font-medium">${test.obtainedMarks} / ${test.totalMarks}</td>
+                                </tr>
+                            `;
+                        });
+
+                        detailTableHTML += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+
+                        const tdDetails = document.createElement('td');
+                        tdDetails.colSpan = 5;
+                        tdDetails.className = 'p-0';
+                        tdDetails.innerHTML = detailTableHTML;
+
+                        trDetails.appendChild(tdDetails);
+                        reportTableBodyPresent.appendChild(trDetails);
+                    } else {
+                         trSummary.classList.add('border-b-2', 'border-gray-400');
+                    }
+                });
+            }, false); // <-- Pass false for isSingleTestReport
+        }
+
+
+        // --- Utility Functions ---
+
+        // Show a styled message
+        function showMessage(message, type = "info") {
+            messageBar.innerText = message;
+            messageBar.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800');
+
+            if (type === "success") {
+                messageBar.classList.add('bg-green-100', 'text-green-800');
+            } else if (type === "error") {
+                messageBar.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                messageBar.classList.add('bg-blue-100', 'text-blue-800');
+            }
+            
+            messageBar.classList.remove('hidden');
+
+            // Hide the message after 3 seconds
+            setTimeout(() => {
+                messageBar.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Download Functions
+        async function downloadAsPDF() {
+            const reportContent = document.getElementById('report-output-container');
+            const opt = {
+                margin: [10, 10],
+                filename: 'test-report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Hide the download buttons during PDF generation
+            const buttons = reportContent.querySelectorAll('button');
+            buttons.forEach(btn => btn.style.display = 'none');
+
+            try {
+                await html2pdf().set(opt).from(reportContent).save();
+                showMessage('PDF downloaded successfully!', 'success');
+            } catch (error) {
+                showMessage('Error generating PDF. Please try again.', 'error');
+            } finally {
+                // Show the buttons again
+                buttons.forEach(btn => btn.style.display = '');
+            }
+        }
+
+        async function downloadAsImage() {
+            const reportContent = document.getElementById('report-output-container');
+            
+            // Hide the download buttons during image capture
+            const buttons = reportContent.querySelectorAll('button');
+            buttons.forEach(btn => btn.style.display = 'none');
+
+            try {
+                const canvas = await html2canvas(reportContent, {
+                    scale: 2,
+                    logging: false,
+                    useCORS: true
+                });
+
+                const link = document.createElement('a');
+                link.download = 'test-report.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showMessage('Image downloaded successfully!', 'success');
+            } catch (error) {
+                showMessage('Error generating image. Please try again.', 'error');
+            } finally {
+                // Show the buttons again
+                buttons.forEach(btn => btn.style.display = '');
+            }
+        }
+
+        // --- Event Listeners ---
+        addStudentButton.addEventListener('click', handleAddStudent);
+        testReportForm.addEventListener('submit', handleSaveReport);
+        printReportButton.addEventListener('click', () => window.print());
+        document.getElementById('download-pdf-button').addEventListener('click', downloadAsPDF);
+        document.getElementById('download-image-button').addEventListener('click', downloadAsImage);
+        // Edit/Delete buttons are now added dynamically to the report view
+        cancelEditButton.addEventListener('click', resetForm);
+        generateMonthlyReportButton.addEventListener('click', () => generateAggregateReport('monthly'));
+        generateYearlyReportButton.addEventListener('click', () => generateAggregateReport('yearly'));
+
+        // --- App Initialization ---
+        function initializeApp() {
+            loadDataFromStorage();
+            renderStudentList();
+            renderSavedReportsList();
+            resetForm(); // This will pre-fill defaults
+            // Set default dates for aggregate reports
+            reportYearInput.value = new Date().getFullYear();
+            reportMonthInput.value = new Date().toISOString().slice(0, 7);
+        }
+
+        // Start the app
+        initializeApp();
+
+    </script>
+</body>
+</html>
+
