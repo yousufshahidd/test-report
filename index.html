@@ -166,11 +166,11 @@
                     <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Manage Classes & Students</h2>
                     <div class="space-y-4">
                         <!-- Class Selector / Add Class -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
-                            <select id="class-select" class="sm:col-span-2 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
-                            <div class="flex space-x-2">
-                                <input type="text" id="new-class-name" placeholder="New class name (e.g., Sixth)" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <button id="add-class-button" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Add Class</button>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                            <select id="class-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                            <div class="flex gap-2">
+                                <input type="text" id="new-class-name" placeholder="New class name (e.g., Sixth)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button id="add-class-button" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Add</button>
                             </div>
                         </div>
 
@@ -581,7 +581,7 @@
                 reportDiv.innerHTML = `
                     <div class="flex-grow">
                         <span class="block font-medium text-gray-800">${report.testTitle}</span>
-                        <span class="block text-sm text-gray-500">${report.testDate}</span>
+                        <span class="block text-sm text-gray-500">${report.className ? report.className + ' • ' : ''}${report.testDate}</span>
                     </div>
                     <div class="flex-shrink-0 space-x-1">
                         <button data-id="${report.id}" class="view-report-button text-blue-600 hover:text-blue-800 font-semibold text-sm">View</button>
@@ -1365,34 +1365,43 @@
         // Download Functions
         async function downloadAsPDF() {
             const reportContent = document.getElementById('report-output-container');
-            const opt = {
-                margin: [10, 10],
-                filename: 'test-report.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
 
-            // Create a clean clone to capture full content (prevents cropping and removes UI buttons)
+            // Clone and prepare a clean copy to render
             const clone = reportContent.cloneNode(true);
-            // Remove any interactive controls (buttons) from the clone
             clone.querySelectorAll('button').forEach(b => b.remove());
-            // Place clone off-screen so it renders at full size
             clone.style.position = 'fixed';
-            clone.style.left = '-9999px';
+            clone.style.left = '0';
             clone.style.top = '0';
             clone.style.width = reportContent.scrollWidth + 'px';
             clone.style.boxShadow = 'none';
+            // make sure clone is visible for html2canvas
+            clone.style.visibility = 'visible';
             document.body.appendChild(clone);
 
             try {
-                await html2pdf().set(opt).from(clone).save();
+                const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false, width: clone.scrollWidth, height: clone.scrollHeight });
+                const imgData = canvas.toDataURL('image/png');
+
+                // Find jsPDF constructor
+                let PDFConstructor = null;
+                if (window.jspdf && window.jspdf.jsPDF) PDFConstructor = window.jspdf.jsPDF;
+                else if (window.jsPDF) PDFConstructor = window.jsPDF;
+                else if (window.jspdf) PDFConstructor = window.jspdf;
+
+                if (!PDFConstructor) {
+                    showMessage('PDF library not found in this environment.', 'error');
+                    return;
+                }
+
+                // Create a PDF sized to the canvas (using px units)
+                const pdf = new PDFConstructor({ unit: 'px', format: [canvas.width, canvas.height] });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                pdf.save('test-report.pdf');
                 showMessage('PDF downloaded successfully!', 'success');
             } catch (error) {
                 console.error(error);
                 showMessage('Error generating PDF. Please try again.', 'error');
             } finally {
-                // Clean up the clone
                 document.body.removeChild(clone);
             }
         }
