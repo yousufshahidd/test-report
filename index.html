@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Report Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ensure jsPDF is available for reliable PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -670,6 +672,7 @@
                                 ${!isPresent ? 'disabled' : ''}
                                 class="student-marks-input mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isPresent ? 'bg-gray-200' : ''}"
                             >
+                            <p id="val-${student.id}" class="text-xs text-red-600 mt-1 hidden">Number cannot exceed total marks.</p>
                         </div>
 
                         <!-- Open Book Checkbox -->
@@ -727,20 +730,40 @@
         function validateMarksInput(event) {
             const input = event.target;
             const totalMarks = parseInt(totalMarksInput.value, 10);
-            let obtainedMarks = parseInt(input.value, 10);
-            
-            if (isNaN(obtainedMarks)) {
-                return; // Allow empty input
+            let val = input.value || '';
+            // Allow empty
+            if (val === '') return;
+
+            // Only keep digits
+            const cleaned = val.replace(/[^0-9]/g, '');
+            if (cleaned !== val) {
+                val = cleaned;
+                input.value = val;
             }
-            
+
+            let obtainedMarks = parseInt(val, 10);
+            if (isNaN(obtainedMarks)) return;
+
             if (!isNaN(totalMarks) && totalMarks > 0) {
-                 if (obtainedMarks > totalMarks) {
-                    input.value = totalMarks; // Cap at total marks
-                    showMessage(`Marks cannot exceed total marks (${totalMarks}).`, "error");
+                if (obtainedMarks > totalMarks) {
+                    // Remove last digit(s) until it's <= totalMarks or empty
+                    while (!isNaN(obtainedMarks) && obtainedMarks > totalMarks) {
+                        val = val.slice(0, -1);
+                        if (val === '') break;
+                        obtainedMarks = parseInt(val, 10);
+                    }
+                    input.value = val;
+                    // Show inline validation message
+                    const msg = document.getElementById(`val-${input.dataset.id}`);
+                    if (msg) {
+                        msg.innerText = `Number cannot exceed total marks. Total marks are ${totalMarks}`;
+                        msg.classList.remove('hidden');
+                        setTimeout(() => msg.classList.add('hidden'), 2500);
+                    }
                 }
             }
             if (obtainedMarks < 0) {
-                input.value = 0; // Floor at 0
+                input.value = '0'; // Floor at 0
             }
         }
         
