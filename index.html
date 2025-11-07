@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Report Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ensure jsPDF is available for reliable PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -161,16 +163,28 @@
             <!-- Left Column: Controls -->
             <div id="controls" class="lg:col-span-1 space-y-8">
                 
-                <!-- Manage Students -->
+                <!-- Manage Students / Classes -->
                 <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
-                    <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Manage Students</h2>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Manage Classes & Students</h2>
                     <div class="space-y-4">
+                        <!-- Class Selector / Add Class -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                            <select id="class-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                            <div class="flex gap-2">
+                                <input type="text" id="new-class-name" placeholder="New class name (e.g., Sixth)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button id="add-class-button" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Add</button>
+                            </div>
+                        </div>
+
+                        <!-- Add/Delete Student -->
                         <div class="flex space-x-2">
                             <input type="text" id="student-name-input" placeholder="Enter new student name" class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <button id="add-student-button" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">
                                 Add
                             </button>
+                            <button id="delete-class-button" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 hidden">Delete Class</button>
                         </div>
+
                         <div id="student-list-container" class="space-y-2 max-h-60 overflow-y-auto pr-2">
                             <!-- Student list will be injected here -->
                         </div>
@@ -332,19 +346,25 @@
     </div>
 
     <!-- Main Application Logic -->
-    <script type(="module")>
-        // --- Global State ---
-        let localStudentList = []; // Local cache of students
-        let localTestReports = []; // Local cache of test reports
-        
-        // --- UI Elements ---
+    <script type="module">
+    // --- Global State ---
+    // Classes structure: [{ id, name, students: [{id, name}] }]
+    let localClasses = []; // Local cache of classes and their students
+    let localTestReports = []; // Local cache of test reports
+    let currentClassId = null; // The id of the currently selected class
+
+    // --- UI Elements ---
         // Message Bar
         const messageBar = document.getElementById('message-bar');
 
-        // Student Roster
-        const studentNameInput = document.getElementById('student-name-input');
-        const addStudentButton = document.getElementById('add-student-button');
-        const studentListContainer = document.getElementById('student-list-container');
+    // Student Roster & Classes
+    const studentNameInput = document.getElementById('student-name-input');
+    const addStudentButton = document.getElementById('add-student-button');
+    const studentListContainer = document.getElementById('student-list-container');
+    const classSelect = document.getElementById('class-select');
+    const newClassNameInput = document.getElementById('new-class-name');
+    const addClassButton = document.getElementById('add-class-button');
+    const deleteClassButton = document.getElementById('delete-class-button');
 
         // Saved Reports
         const savedReportsList = document.getElementById('saved-reports-list');
@@ -382,12 +402,12 @@
 
         // --- Local Storage Utilities ---
         const StorageKeys = {
-            Students: 'testReportApp_Students',
+            Classes: 'testReportApp_Classes',
             Reports: 'testReportApp_Reports'
         };
 
         // --- Default Data ---
-        const defaultStudents = [
+        const defaultStudentNames = [
             "Syed Hassan", "Ahmed Raza", "Makki Raza", "Mushtaq tufail", "Hasan Raza", 
             "Bilal Raza", "Muhammad MuSHtaq Madni", "Muhammad Yousuf", "Gulam Mustafa", 
             "Muhammad Uzair", "Muhammad Safwan", "Wasifraza", "Farooq", "Areeb Hashim", 
@@ -395,7 +415,7 @@
             "AreebAhmed", "Salman", "Hafiz Ibrahim", "Abdul Hafeez", "Saad", "Alyan", 
             "Usman", "Mubeen", "Shayan", "Ahmed raza shafat", "Usaid Raza Shafat"
         ];
-        
+
         const defaultFormValues = {
             institute: "Jamia-tul-Madina",
             subject: "Taiseer Mustaleh-ul-Hadis",
@@ -404,27 +424,37 @@
 
         // Load data from localStorage
         function loadDataFromStorage() {
-            // Load Students
-            const savedStudents = localStorage.getItem(StorageKeys.Students);
-            if (savedStudents) {
-                localStudentList = JSON.parse(savedStudents);
+            // Load Classes
+            const savedClasses = localStorage.getItem(StorageKeys.Classes);
+            if (savedClasses) {
+                localClasses = JSON.parse(savedClasses);
             } else {
-                // First time load: populate with defaults
-                localStudentList = defaultStudents.sort().map((name, index) => ({
+                // First time load: create default class 'Fifth' with default students
+                const defaultStudents = defaultStudentNames.sort().map((name, index) => ({
                     id: `student_${new Date().getTime() + index}`,
                     name: name
                 }));
-                saveStudentsToStorage();
+                const defaultClass = {
+                    id: `class_${new Date().getTime()}`,
+                    name: 'Fifth',
+                    students: defaultStudents
+                };
+                localClasses = [defaultClass];
+                currentClassId = defaultClass.id;
+                saveClassesToStorage();
             }
+
+            // If classes were loaded but no currentClassId set, pick the first
+            if (!currentClassId && localClasses.length > 0) currentClassId = localClasses[0].id;
 
             // Load Reports
             localTestReports = JSON.parse(localStorage.getItem(StorageKeys.Reports)) || [];
             localTestReports.sort((a, b) => b.testDate.localeCompare(a.testDate)); // Sort newest first
         }
 
-        // Save students to localStorage
-        function saveStudentsToStorage() {
-            localStorage.setItem(StorageKeys.Students, JSON.stringify(localStudentList));
+        // Save classes to localStorage
+        function saveClassesToStorage() {
+            localStorage.setItem(StorageKeys.Classes, JSON.stringify(localClasses));
         }
 
         // Save reports to localStorage
@@ -433,16 +463,41 @@
             localStorage.setItem(StorageKeys.Reports, JSON.stringify(localTestReports));
         }
 
+        // Helper: get current class object
+        function getCurrentClass() {
+            return localClasses.find(c => c.id === currentClassId) || null;
+        }
+
+        // Helper: get students of current class
+        function getCurrentStudents() {
+            const cls = getCurrentClass();
+            return cls ? cls.students : [];
+        }
+
+        // Helper: find student by id across classes
+        function findStudentById(id) {
+            for (const cls of localClasses) {
+                const s = cls.students.find(st => st.id === id);
+                if (s) return s;
+            }
+            return null;
+        }
+
         // --- Student List Functions ---
 
         // Render the student list
         function renderStudentList() {
+            // Ensure class select is up-to-date
+            renderClassSelect();
+
             studentListContainer.innerHTML = ''; // Clear existing list
-            if (localStudentList.length === 0) {
-                studentListContainer.innerHTML = '<p class="text-gray-500 text-sm">No students added yet.</p>';
+            const students = getCurrentStudents();
+            if (students.length === 0) {
+                studentListContainer.innerHTML = '<p class="text-gray-500 text-sm">No students in this class yet.</p>';
                 return;
             }
-            localStudentList.forEach(student => {
+
+            students.forEach(student => {
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-200';
                 studentDiv.innerHTML = `
@@ -457,17 +512,41 @@
             });
         }
 
-        // Add a new student
+        // Render class select dropdown
+        function renderClassSelect() {
+            classSelect.innerHTML = '';
+            if (localClasses.length === 0) {
+                classSelect.innerHTML = '<option value="">No classes</option>';
+                deleteClassButton.classList.add('hidden');
+                return;
+            }
+
+            localClasses.forEach(cls => {
+                const opt = document.createElement('option');
+                opt.value = cls.id;
+                opt.innerText = cls.name;
+                if (cls.id === currentClassId) opt.selected = true;
+                classSelect.appendChild(opt);
+            });
+            deleteClassButton.classList.remove('hidden');
+        }
+
+        // Add a new student to the currently selected class
         function handleAddStudent() {
             const name = studentNameInput.value.trim();
+            const cls = getCurrentClass();
+            if (!cls) {
+                showMessage('Please create or select a class first.', 'error');
+                return;
+            }
             if (name) {
                 const newStudent = {
                     id: `student_${new Date().getTime()}`,
                     name: name
                 };
-                localStudentList.push(newStudent);
-                localStudentList.sort((a, b) => a.name.localeCompare(b.name)); // Keep sorted
-                saveStudentsToStorage();
+                cls.students.push(newStudent);
+                cls.students.sort((a, b) => a.name.localeCompare(b.name)); // Keep sorted
+                saveClassesToStorage();
                 renderStudentList();
                 renderStudentScoresForm(); // Re-render the form
                 studentNameInput.value = '';
@@ -477,11 +556,13 @@
             }
         }
 
-        // Remove a student
+        // Remove a student from the current class
         function handleRemoveStudent(event) {
             const studentId = event.target.dataset.id;
-            localStudentList = localStudentList.filter(student => student.id !== studentId);
-            saveStudentsToStorage();
+            const cls = getCurrentClass();
+            if (!cls) return;
+            cls.students = cls.students.filter(student => student.id !== studentId);
+            saveClassesToStorage();
             renderStudentList();
             renderStudentScoresForm(); // Re-render the form
             showMessage("Student removed.", "success");
@@ -502,7 +583,7 @@
                 reportDiv.innerHTML = `
                     <div class="flex-grow">
                         <span class="block font-medium text-gray-800">${report.testTitle}</span>
-                        <span class="block text-sm text-gray-500">${report.testDate}</span>
+                        <span class="block text-sm text-gray-500">${report.className ? report.className + ' • ' : ''}${report.testDate}</span>
                     </div>
                     <div class="flex-shrink-0 space-x-1">
                         <button data-id="${report.id}" class="view-report-button text-blue-600 hover:text-blue-800 font-semibold text-sm">View</button>
@@ -546,14 +627,15 @@
         // Render the student scores inputs in the form
         function renderStudentScoresForm(scores = []) {
             studentScoresContainer.innerHTML = '';
-            if (localStudentList.length === 0) {
-                studentScoresContainer.innerHTML = '<p class="text-gray-500 text-sm">Add students to the list to enter marks.</p>';
+            const students = getCurrentStudents();
+            if (students.length === 0) {
+                studentScoresContainer.innerHTML = '<p class="text-gray-500 text-sm">Add students to the selected class to enter marks.</p>';
                 return;
             }
 
             const totalMarks = parseInt(totalMarksInput.value, 10) || 0;
 
-            localStudentList.forEach(student => {
+            students.forEach(student => {
                 const scoreData = scores.find(s => s.studentId === student.id);
                 
                 const status = scoreData?.status || 'present';
@@ -590,6 +672,7 @@
                                 ${!isPresent ? 'disabled' : ''}
                                 class="student-marks-input mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isPresent ? 'bg-gray-200' : ''}"
                             >
+                            <p id="val-${student.id}" class="text-xs text-red-600 mt-1 hidden">Number cannot exceed total marks.</p>
                         </div>
 
                         <!-- Open Book Checkbox -->
@@ -647,20 +730,40 @@
         function validateMarksInput(event) {
             const input = event.target;
             const totalMarks = parseInt(totalMarksInput.value, 10);
-            let obtainedMarks = parseInt(input.value, 10);
-            
-            if (isNaN(obtainedMarks)) {
-                return; // Allow empty input
+            let val = input.value || '';
+            // Allow empty
+            if (val === '') return;
+
+            // Only keep digits
+            const cleaned = val.replace(/[^0-9]/g, '');
+            if (cleaned !== val) {
+                val = cleaned;
+                input.value = val;
             }
-            
+
+            let obtainedMarks = parseInt(val, 10);
+            if (isNaN(obtainedMarks)) return;
+
             if (!isNaN(totalMarks) && totalMarks > 0) {
-                 if (obtainedMarks > totalMarks) {
-                    input.value = totalMarks; // Cap at total marks
-                    showMessage(`Marks cannot exceed total marks (${totalMarks}).`, "error");
+                if (obtainedMarks > totalMarks) {
+                    // Remove last digit(s) until it's <= totalMarks or empty
+                    while (!isNaN(obtainedMarks) && obtainedMarks > totalMarks) {
+                        val = val.slice(0, -1);
+                        if (val === '') break;
+                        obtainedMarks = parseInt(val, 10);
+                    }
+                    input.value = val;
+                    // Show inline validation message
+                    const msg = document.getElementById(`val-${input.dataset.id}`);
+                    if (msg) {
+                        msg.innerText = `Number cannot exceed total marks. Total marks are ${totalMarks}`;
+                        msg.classList.remove('hidden');
+                        setTimeout(() => msg.classList.add('hidden'), 2500);
+                    }
                 }
             }
             if (obtainedMarks < 0) {
-                input.value = 0; // Floor at 0
+                input.value = '0'; // Floor at 0
             }
         }
         
@@ -693,7 +796,8 @@
             // Collect scores
             const studentScores = [];
             let hasInvalidMarks = false;
-            localStudentList.forEach(student => {
+            const studentsToProcess = getCurrentStudents();
+            studentsToProcess.forEach(student => {
                 const studentId = student.id;
                 const status = document.getElementById(`status-${studentId}`).value;
                 const marksInput = document.getElementById(`marks-${studentId}`);
@@ -734,6 +838,8 @@
                 teacher: teacherNameInput.value,
                 testDate: testDateInput.value,
                 testTitle: testTitleInput.value,
+                classId: currentClassId,
+                className: getCurrentClass()?.name || 'N/A',
                 totalMarks: totalMarks,
                 scores: studentScores
             };
@@ -907,6 +1013,7 @@
                 Institute: test.institute,
                 Subject: test.subject,
                 Teacher: test.teacher,
+                Class: test.className || 'N/A',
                 "Test Date": test.testDate,
                 "Test Title": test.testTitle,
                 "Total Marks": test.totalMarks
@@ -1101,7 +1208,7 @@
             const studentData = {};
             testsToAggregate.forEach(test => {
                 test.scores.forEach(score => {
-                    if (!localStudentList.find(s => s.id === score.studentId)) return;
+                    if (!findStudentById(score.studentId)) return;
                     
                     if (!studentData[score.studentId]) {
                         studentData[score.studentId] = {
@@ -1281,41 +1388,67 @@
         // Download Functions
         async function downloadAsPDF() {
             const reportContent = document.getElementById('report-output-container');
-            const opt = {
-                margin: [10, 10],
-                filename: 'test-report.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
 
-            // Hide the download buttons during PDF generation
-            const buttons = reportContent.querySelectorAll('button');
-            buttons.forEach(btn => btn.style.display = 'none');
+            // Clone and prepare a clean copy to render
+            const clone = reportContent.cloneNode(true);
+            clone.querySelectorAll('button').forEach(b => b.remove());
+            clone.style.position = 'fixed';
+            clone.style.left = '0';
+            clone.style.top = '0';
+            clone.style.width = reportContent.scrollWidth + 'px';
+            clone.style.boxShadow = 'none';
+            // make sure clone is visible for html2canvas
+            clone.style.visibility = 'visible';
+            document.body.appendChild(clone);
 
             try {
-                await html2pdf().set(opt).from(reportContent).save();
+                const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false, width: clone.scrollWidth, height: clone.scrollHeight });
+                const imgData = canvas.toDataURL('image/png');
+
+                // Find jsPDF constructor
+                let PDFConstructor = null;
+                if (window.jspdf && window.jspdf.jsPDF) PDFConstructor = window.jspdf.jsPDF;
+                else if (window.jsPDF) PDFConstructor = window.jsPDF;
+                else if (window.jspdf) PDFConstructor = window.jspdf;
+
+                if (!PDFConstructor) {
+                    showMessage('PDF library not found in this environment.', 'error');
+                    return;
+                }
+
+                // Create a PDF sized to the canvas (using px units)
+                const pdf = new PDFConstructor({ unit: 'px', format: [canvas.width, canvas.height] });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                pdf.save('test-report.pdf');
                 showMessage('PDF downloaded successfully!', 'success');
             } catch (error) {
+                console.error(error);
                 showMessage('Error generating PDF. Please try again.', 'error');
             } finally {
-                // Show the buttons again
-                buttons.forEach(btn => btn.style.display = '');
+                document.body.removeChild(clone);
             }
         }
 
         async function downloadAsImage() {
             const reportContent = document.getElementById('report-output-container');
-            
-            // Hide the download buttons during image capture
-            const buttons = reportContent.querySelectorAll('button');
-            buttons.forEach(btn => btn.style.display = 'none');
+
+            // Create a clean clone to ensure full content capture
+            const clone = reportContent.cloneNode(true);
+            clone.querySelectorAll('button').forEach(b => b.remove());
+            clone.style.position = 'fixed';
+            clone.style.left = '-9999px';
+            clone.style.top = '0';
+            clone.style.width = reportContent.scrollWidth + 'px';
+            clone.style.boxShadow = 'none';
+            document.body.appendChild(clone);
 
             try {
-                const canvas = await html2canvas(reportContent, {
+                const canvas = await html2canvas(clone, {
                     scale: 2,
                     logging: false,
-                    useCORS: true
+                    useCORS: true,
+                    width: clone.scrollWidth,
+                    height: clone.scrollHeight
                 });
 
                 const link = document.createElement('a');
@@ -1324,15 +1457,64 @@
                 link.click();
                 showMessage('Image downloaded successfully!', 'success');
             } catch (error) {
+                console.error(error);
                 showMessage('Error generating image. Please try again.', 'error');
             } finally {
-                // Show the buttons again
-                buttons.forEach(btn => btn.style.display = '');
+                // Clean up the clone
+                document.body.removeChild(clone);
             }
         }
 
         // --- Event Listeners ---
+        // Class management handlers
+        function handleAddClass() {
+            const name = newClassNameInput.value.trim();
+            if (!name) {
+                showMessage('Please enter a class name.', 'error');
+                return;
+            }
+            const newClass = {
+                id: `class_${new Date().getTime()}`,
+                name: name,
+                students: []
+            };
+            localClasses.push(newClass);
+            currentClassId = newClass.id;
+            saveClassesToStorage();
+            newClassNameInput.value = '';
+            renderClassSelect();
+            renderStudentList();
+            showMessage(`Class "${name}" created.`, 'success');
+        }
+
+        function handleDeleteClass() {
+            const cls = getCurrentClass();
+            if (!cls) return;
+            if (!confirm(`Delete class ${cls.name}? This will remove ${cls.students.length} students from this class.`)) return;
+            localClasses = localClasses.filter(c => c.id !== cls.id);
+            if (localClasses.length === 0) {
+                // recreate default empty 'Fifth' class
+                const fallback = { id: `class_${new Date().getTime()}`, name: 'Fifth', students: [] };
+                localClasses.push(fallback);
+                currentClassId = fallback.id;
+            } else {
+                currentClassId = localClasses[0].id;
+            }
+            saveClassesToStorage();
+            renderClassSelect();
+            renderStudentList();
+            showMessage('Class deleted.', 'success');
+        }
+
+        function handleClassChange(e) {
+            currentClassId = e.target.value;
+            renderStudentList();
+            renderStudentScoresForm();
+        }
         addStudentButton.addEventListener('click', handleAddStudent);
+    addClassButton.addEventListener('click', handleAddClass);
+    classSelect.addEventListener('change', handleClassChange);
+    deleteClassButton.addEventListener('click', handleDeleteClass);
         testReportForm.addEventListener('submit', handleSaveReport);
         printReportButton.addEventListener('click', () => window.print());
         document.getElementById('download-pdf-button').addEventListener('click', downloadAsPDF);
