@@ -1392,19 +1392,28 @@
             // Clone and prepare a clean copy to render
             const clone = reportContent.cloneNode(true);
             clone.querySelectorAll('button').forEach(b => b.remove());
-            clone.style.position = 'fixed';
-            clone.style.left = '0';
-            clone.style.top = '0';
-            clone.style.width = reportContent.scrollWidth + 'px';
+            
+            // Create a temporary container with A4 dimensions
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'fixed';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.top = '0';
+            tempContainer.style.width = '210mm'; // A4 width
+            tempContainer.style.padding = '10mm'; // Add some padding
+            tempContainer.style.backgroundColor = 'white';
+            tempContainer.style.boxSizing = 'border-box';
+            
+            // Style the clone for A4
+            clone.style.width = '100%';
+            clone.style.margin = '0';
             clone.style.boxShadow = 'none';
-            // make sure clone is visible for html2canvas
-            clone.style.visibility = 'visible';
-            document.body.appendChild(clone);
+            clone.style.borderRadius = '0';
+            
+            // Add clone to temp container
+            tempContainer.appendChild(clone);
+            document.body.appendChild(tempContainer);
 
             try {
-                const canvas = await html2canvas(clone, { scale: 2, useCORS: true, logging: false, width: clone.scrollWidth, height: clone.scrollHeight });
-                const imgData = canvas.toDataURL('image/png');
-
                 // Find jsPDF constructor
                 let PDFConstructor = null;
                 if (window.jspdf && window.jspdf.jsPDF) PDFConstructor = window.jspdf.jsPDF;
@@ -1416,16 +1425,62 @@
                     return;
                 }
 
-                // Create a PDF sized to the canvas (using px units)
-                const pdf = new PDFConstructor({ unit: 'px', format: [canvas.width, canvas.height] });
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                // Initialize PDF with A4 format in portrait orientation
+                const pdf = new PDFConstructor({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // Generate image with better quality
+                const canvas = await html2canvas(tempContainer, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    width: tempContainer.offsetWidth,
+                    height: tempContainer.offsetHeight,
+                    backgroundColor: '#ffffff'
+                });
+
+                // Calculate dimensions to fit A4
+                const imgWidth = 210; // A4 width in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                // If content is longer than one page, handle pagination
+                let heightLeft = imgHeight;
+                let position = 0;
+                let pageNumber = 1;
+
+                while (heightLeft > 0) {
+                    // Add page content
+                    if (pageNumber > 1) {
+                        pdf.addPage();
+                    }
+                    
+                    const currentHeight = Math.min(297, heightLeft); // 297 is A4 height
+                    pdf.addImage(
+                        canvas.toDataURL('image/jpeg', 1.0),
+                        'JPEG',
+                        0,
+                        position < 0 ? position : 0,
+                        imgWidth,
+                        imgHeight,
+                        '',
+                        'FAST'
+                    );
+                    
+                    heightLeft -= 297;
+                    position -= 297;
+                    pageNumber++;
+                }
+
                 pdf.save('test-report.pdf');
                 showMessage('PDF downloaded successfully!', 'success');
             } catch (error) {
                 console.error(error);
                 showMessage('Error generating PDF. Please try again.', 'error');
             } finally {
-                document.body.removeChild(clone);
+                document.body.removeChild(tempContainer);
             }
         }
 
